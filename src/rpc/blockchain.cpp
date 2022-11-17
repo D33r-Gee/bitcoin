@@ -515,6 +515,8 @@ static RPCHelpMan getblockheader()
                 {
                     {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
                     {"verbose", RPCArg::Type::BOOL, RPCArg::Default{true}, "true for a json object, false for the hex-encoded data"},
+                    {"count", RPCArg::Type::AMOUNT, RPCArg::Default{"null"}, "Number of headers to get (maximum: 2000)"},
+
                 },
                 {
                     RPCResult{"for verbose = true",
