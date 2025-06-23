@@ -15,13 +15,18 @@ get_target_property(qt_lib_type Qt6::Core TYPE)
 
 function(import_plugins target)
   if(qt_lib_type STREQUAL "STATIC_LIBRARY")
-    set(plugins Qt6::QMinimalIntegrationPlugin)
+    set(plugins "")
+    if(TARGET Qt6::QMinimalIntegrationPlugin)
+      list(APPEND plugins Qt6::QMinimalIntegrationPlugin)
+    endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
       list(APPEND plugins Qt6::QXcbIntegrationPlugin)
     elseif(WIN32)
       list(APPEND plugins Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
     elseif(APPLE)
       list(APPEND plugins Qt6::QCocoaIntegrationPlugin Qt6::QMacStylePlugin)
+    elseif(ANDROID)
+      list(APPEND plugins Qt6::QAndroidIntegrationPlugin Qt6::QAndroidStylePlugin)
     endif()
     qt6_import_plugins(${target}
       INCLUDE ${plugins}
@@ -53,6 +58,13 @@ set(CMAKE_AUTOMOC_MOC_OPTIONS "-p${CMAKE_CURRENT_SOURCE_DIR}")
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS forms)
+
+# TODO: The file(GLOB ...) command should be replaced with an explicit
+# file list. Such a change must be synced with the corresponding change
+# to https://github.com/bitcoin-core/bitcoin-maintainer-tools/blob/main/update-translations.py
+file(GLOB ts_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} locale/*.ts)
+set_source_files_properties(${ts_files} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/locale)
+qt6_add_translation(qm_files ${ts_files})
 
 configure_file(bitcoin_locale.qrc bitcoin_locale.qrc USE_SOURCE_PERMISSIONS COPYONLY)
 
@@ -243,20 +255,45 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
   )
 endif()
 
-file(GLOB ts_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} locale/*.ts)
-set_source_files_properties(${ts_files} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/locale)
-qt6_add_lrelease(bitcoinqt
-  TS_FILES ${ts_files}
-  OPTIONS -silent
-)
+if(ANDROID)
+  # Build a shared library instead of an executable so that
+  # androiddeployqt can package it and Java can load it via
+  # System.loadLibrary().  The output name must be unique per ABI.
+  add_library(bitcoin-qt SHARED
+    main.cpp
+    ../init/bitcoin-qt.cpp
+  )
+  if(DEFINED ANDROID_ABI)
+    string(REPLACE "-" "_" _android_abi_sanitized "${ANDROID_ABI}")
+    set_target_properties(bitcoin-qt PROPERTIES OUTPUT_NAME "bitcoin-qt_${_android_abi_sanitized}")
+  endif()
+  # Allow duplicate JNI_OnLoad coming from QtCore and the platform plugin.
+  target_link_options(bitcoin-qt PRIVATE -Wl,--allow-multiple-definition)
 
-add_executable(bitcoin-qt
-  main.cpp
-  ../init/bitcoin-qt.cpp
-)
-
-add_windows_resources(bitcoin-qt res/bitcoin-qt-res.rc)
-add_windows_application_manifest(bitcoin-qt)
+  # Provide a custom Android package source directory so that a user-supplied
+  # AndroidManifest.xml (and any extra Java/Kotlin sources or resources) found
+  # under <project>/android will be merged into the package produced by
+  # androiddeployqt. This lets us tweak the manifest without touching Qt's
+  # own template. In addition, pass command-line arguments to the Qt loader
+  # via the dedicated manifest <meta-data> entry.
+  set_target_properties(bitcoin-qt PROPERTIES
+    QT_ANDROID_PACKAGE_SOURCE_DIR "${PROJECT_SOURCE_DIR}/android"
+    # Qt's deployment JSON generator (qt6_android_generate_deployment_settings)
+    # doesn't currently pick up QT_ANDROID_PACKAGE_SOURCE_DIR. Instead it looks
+    # for a private property called _qt_android_native_package_source_dir. Set
+    # it explicitly so the generated armv7a_deploy.json contains the
+    # "android-package-source-directory" entry and thus makes
+    # androiddeployqt copy our custom template from <project>/android verbatim.
+    _qt_android_native_package_source_dir "${PROJECT_SOURCE_DIR}/android"
+    QT_ANDROID_APPLICATION_ARGUMENTS "-signet"
+  )
+else()
+  add_executable(bitcoin-qt
+    main.cpp
+    ../init/bitcoin-qt.cpp
+  )
+  add_windows_resources(bitcoin-qt res/bitcoin-qt-res.rc)
+endif()
 
 target_link_libraries(bitcoin-qt
   core_interface

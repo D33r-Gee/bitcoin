@@ -1,0 +1,22 @@
+diff --git a/qtbase/src/plugins/platforms/android/androidjnimain.cpp b/qtbase/src/plugins/platforms/android/androidjnimain.cpp
+index 1234567..89abcde 100644
+--- a/qtbase/src/plugins/platforms/android/androidjnimain.cpp
++++ b/qtbase/src/plugins/platforms/android/androidjnimain.cpp
+@@ -895,6 +895,17 @@ Q_DECL_EXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void */*reserved*/)
+         __android_log_print(ANDROID_LOG_FATAL, "Qt", "registerNatives failed");
+         return -1;
+     }
++
++    // Ensure JNI is initialized only once
++    if (!QT_PREPEND_NAMESPACE(QtAndroidPrivate::isInitialized())) {
++        QJniEnvironment env;
++        const jint ret = QT_PREPEND_NAMESPACE(QtAndroidPrivate::initJNI)(vm, env.jniEnv());
++        if (ret != JNI_OK) {
++            __android_log_print(ANDROID_LOG_FATAL, "Qt", "initJNI failed");
++            return JNI_ERR;
++        }
++    }
++
+     QWindowSystemInterfacePrivate::TabletEvent::setPlatformSynthesizesMouse(false);
+
+     // attach qt main thread data to this thread
