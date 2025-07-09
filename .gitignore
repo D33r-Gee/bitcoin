@@ -21,3 +21,4 @@ target/
 /guix-build-*
 
 /ci/scratch/
+.github/workflows/ci.yml
