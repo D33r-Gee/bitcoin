@@ -10,7 +10,6 @@ endif
 $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := dont_hardcode_pwd.patch
-$(package)_patches += fix_android_duplicate_symbol.patch
 $(package)_patches += fix_android_jni_static.patch
 $(package)_patches += qtbase-moc-ignore-gcc-macro.patch
 $(package)_patches += qtbase_avoid_native_float16.patch
@@ -261,7 +260,6 @@ endif
 
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_android_duplicate_symbol.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_android_jni_static.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase_avoid_native_float16.patch && \

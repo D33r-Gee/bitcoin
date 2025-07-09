@@ -170,7 +170,7 @@ zmq_packages_$(NO_ZMQ) = $(zmq_packages)
 multiprocess_packages_$(MULTIPROCESS) = $(multiprocess_packages)
 usdt_packages_$(NO_USDT) = $(usdt_$(host_os)_packages)
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(boost_packages_) $(libevent_packages_) $(qt_packages_) $(wallet_packages_) $(usdt_packages_)
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(boost_packages_) $(libevent_packages_) $(qt_packages_) $(qrencode_packages_) $(wallet_packages_) $(usdt_packages_)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages) $(qt_native_packages_)
 
 ifneq ($(zmq_packages_),)
@@ -243,6 +243,8 @@ $(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(fina
             -e 's|@android_ndk@|$(ANDROID_NDK)|' \
             -e 's|@android_toolchain_bin_dir@|$(android_toolchain_bin_dir)|' \
             -e 's|@android_libcxx_shared_dir@|$(android_libcxx_shared_dir)|' \
+            -e 's|@external_qt_android_sdk@|$(external_qt_android_sdk)|' \
+            -e 's|@external_qt_host_qt@|$(external_qt_host_qt)|' \
             $< > $@
 	touch $@
 

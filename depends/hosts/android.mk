@@ -29,3 +29,14 @@ else ifeq ($(host_arch),aarch64)
 else ifeq ($(host_arch),x86_64)
   android_abi := x86_64
 endif
+
+# If a prebuilt Qt for Android is provided via QT_ANDROID_SDK (and optionally
+# QT_HOST_QT), do not build Qt in the depends system and instead record the
+# paths so they can be propagated into the generated toolchain file.
+ifneq ($(QT_ANDROID_SDK),)
+  NO_QT := 1
+  # These variables are consumed by depends/Makefile when generating
+  # the toolchain file.
+  external_qt_android_sdk := $(QT_ANDROID_SDK)
+  external_qt_host_qt := $(QT_HOST_QT)
+endif

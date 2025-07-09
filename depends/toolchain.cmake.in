@@ -8,6 +8,108 @@ if("@host_system_name@" STREQUAL "Android")
   set(ANDROID_ABI @android_abi@)
   set(ANDROID_PLATFORM android-@host_system_version@)
   include(@android_ndk@/build/cmake/android.toolchain.cmake)
+
+  # --------------------------------------------------------------------
+  #  Customisation: integrate a pre-built Qt for Android SDK seamlessly
+  # --------------------------------------------------------------------
+  # The path *may* come from the depends build (recorded via the
+  # `QT_ANDROID_SDK` / `QT_HOST_QT` variables that were supplied when
+  # invoking `make -C depends …`).  These get substituted into this
+  # template via the Makefile.  If they are empty we fall back to the
+  # runtime environment variables so manual overrides are still possible.
+  if(NOT "@external_qt_android_sdk@" STREQUAL "")
+    set(_QT_ANDROID_SDK "@external_qt_android_sdk@")
+  elseif(DEFINED ENV{QT_ANDROID_SDK})
+    set(_QT_ANDROID_SDK "$ENV{QT_ANDROID_SDK}")
+  endif()
+
+  if(_QT_ANDROID_SDK)
+    # Resolve host-side Qt (for androiddeployqt) in the same manner.
+    if(NOT "@external_qt_host_qt@" STREQUAL "")
+      set(_QT_HOST_PATH "@external_qt_host_qt@")
+    elseif(DEFINED ENV{QT_HOST_PATH})
+      set(_QT_HOST_PATH "$ENV{QT_HOST_PATH}")
+    endif()
+
+    # Provide a sane Android-NDK root for Qt's toolchain to chain-load,
+    # silencing the bogus Windows path warning.
+    if(NOT DEFINED ANDROID_NDK_ROOT)
+      if(NOT "@android_ndk@" STREQUAL "")
+        set(ANDROID_NDK_ROOT "@android_ndk@")
+      elseif(DEFINED ENV{ANDROID_NDK})
+        set(ANDROID_NDK_ROOT "$ENV{ANDROID_NDK}")
+      endif()
+    endif()
+
+    # Provide QT_HOST_PATH up-front so Qt's toolchain can pick it up while loading.
+    if(_QT_HOST_PATH)
+      set(QT_HOST_PATH "${_QT_HOST_PATH}" CACHE PATH "Host Qt installation used by androiddeployqt" FORCE)
+    endif()
+
+    # Locate the Qt chain-load toolchain and include it.
+    set(_QT_TOOLCHAIN "${_QT_ANDROID_SDK}/Qt6/qt.toolchain.cmake")
+    if(EXISTS "${_QT_TOOLCHAIN}")
+      message(STATUS "Qt Android SDK detected at '${_QT_ANDROID_SDK}'. Using Qt toolchain file '${_QT_TOOLCHAIN}'.")
+      include("${_QT_TOOLCHAIN}")
+    else()
+      message(WARNING "Qt Android SDK path '${_QT_ANDROID_SDK}' was provided but '${_QT_TOOLCHAIN}' does not exist. Skipping Qt integration.")
+    endif()
+    unset(_QT_TOOLCHAIN)
+
+    # Default to Ninja generator unless the user explicitly chose one.
+    if(NOT DEFINED CMAKE_GENERATOR)
+      set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "Default generator for Qt Android builds")
+    endif()
+
+    # Ensure CMake can locate Qt and our depends prefix first.
+    list(PREPEND CMAKE_PREFIX_PATH "${_QT_ANDROID_SDK}")
+    list(APPEND CMAKE_FIND_ROOT_PATH "${_QT_ANDROID_SDK}")
+
+    # Disable unwanted Qt ZSTD resource compression to save APK size.
+    set(QT_RESOURCE_FEATURE_ZSTD OFF CACHE BOOL "Disable Zstd compression for Qt rcc resources" FORCE)
+
+    # After inclusion, extend search paths with host Qt (needed for host tools like lupdate).
+    if(_QT_HOST_PATH)
+      list(APPEND CMAKE_PREFIX_PATH "${_QT_HOST_PATH}")
+      list(APPEND CMAKE_FIND_ROOT_PATH "${_QT_HOST_PATH}")
+    endif()
+
+    # Configure Bitcoin Core build options suited for Android GUI.
+    set(BUILD_GUI ON  CACHE BOOL "Build GUI for Android"   FORCE)
+    foreach(_opt BUILD_CLI BUILD_DAEMON BUILD_TX BUILD_UTIL BUILD_TESTS BUILD_BENCH)
+      set(${_opt} OFF CACHE BOOL "Disabled for Android GUI build" FORCE)
+    endforeach()
+    set(WITH_DBUS OFF CACHE BOOL "Disable DBus for Android" FORCE)
+    if(NOT DEFINED CMAKE_BUILD_TYPE)
+      set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Default build type" FORCE)
+    endif()
+
+    # Make the path to the depends prefix easily accessible and searchable.
+    set(_DEPENDS_PREFIX "${CMAKE_CURRENT_LIST_DIR}")
+    list(APPEND CMAKE_PREFIX_PATH "${_DEPENDS_PREFIX}")
+    list(APPEND CMAKE_FIND_ROOT_PATH "${_DEPENDS_PREFIX}")
+
+    # Package specific hints for static libraries produced by depends.
+    set(QRencode_INCLUDE_DIR "${_DEPENDS_PREFIX}/include" CACHE PATH "Path to qrencode headers" FORCE)
+    set(QRencode_LIBRARY_RELEASE "${_DEPENDS_PREFIX}/lib/libqrencode.a" CACHE FILEPATH "Path to qrencode static library" FORCE)
+    # Provide generic alias too, required by FindQRencode.cmake when only a
+    # single configuration exists.
+    set(QRencode_LIBRARY "${QRencode_LIBRARY_RELEASE}" CACHE FILEPATH "Alias for qrencode static library" FORCE)
+
+    set(ZeroMQ_DIR          "${_DEPENDS_PREFIX}/lib/cmake/ZeroMQ" CACHE PATH "Path to ZeroMQ CMake config" FORCE)
+    set(SQLite3_INCLUDE_DIR "${_DEPENDS_PREFIX}/include"           CACHE PATH "Path to SQLite3 headers" FORCE)
+    set(SQLite3_LIBRARY     "${_DEPENDS_PREFIX}/lib/libsqlite3.a"  CACHE FILEPATH "Path to SQLite3 static library" FORCE)
+
+    # Provide explicit hint variables so CMake's find_package(Qt) logic succeeds.
+    set(Qt6_ROOT "${_QT_ANDROID_SDK}" CACHE PATH "Root of external Qt 6 installation" FORCE)
+    set(Qt6_DIR  "${_QT_ANDROID_SDK}/lib/cmake/Qt6" CACHE PATH "Path to Qt6Config.cmake" FORCE)
+
+    unset(_DEPENDS_PREFIX)
+  endif()
+  # --------------------------------------------------------------------
+  #  End Qt for Android integration
+  # --------------------------------------------------------------------
+
   # Qt's Java sources for Android Application Package (APK).
   cmake_path(SET ANDROID_APK_SRC "${CMAKE_CURRENT_LIST_DIR}/src/android/java")
   # The libc++_shared.so shared library, provided by the Android SDK,
