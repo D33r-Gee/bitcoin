@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <uint256.h>
+#include <util/fs.h>
 
 namespace node {
 class SnapshotMetadata;
@@ -22,6 +23,11 @@ public:
 
     //! Activate the snapshot, making it the active chainstate.
     virtual bool activate() = 0;
+
+    //! Generate a UTXO snapshot of the current chainstate and write it to disk.
+    //! Returns true on success, false on failure. The snapshot content matches
+    //! the current tip (equivalent to the "latest" type in the dumptxoutset RPC).
+    virtual bool generate(const fs::path& output_path) = 0;
 };
 
 } // namespace interfaces

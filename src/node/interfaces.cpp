@@ -94,8 +94,8 @@ namespace {
 class SnapshotImpl : public interfaces::Snapshot
 {
 public:
-    SnapshotImpl(ChainstateManager& chainman, const fs::path& path, bool in_memory)
-        : m_chainman(chainman), m_path(path), m_in_memory(in_memory) {}
+    SnapshotImpl(NodeContext& node, ChainstateManager& chainman, const fs::path& path, bool in_memory)
+        : m_node(node), m_chainman(chainman), m_path(path), m_in_memory(in_memory) {}
 
     bool activate() override
     {
@@ -120,7 +120,37 @@ public:
         return activation_result.has_value();
     }
 
+    bool generate(const fs::path& output_path) override
+    {
+        try {
+            const fs::path path = fsbridge::AbsPathJoin(Assert(m_node.args)->GetDataDirNet(), output_path);
+            const std::string out_str = fs::PathToString(output_path);
+            const fs::path temppath = fsbridge::AbsPathJoin(Assert(m_node.args)->GetDataDirNet(), fs::u8path(out_str + ".incomplete"));
+
+            if (fs::exists(path)) {
+                // Do not overwrite existing files
+                return false;
+            }
+
+            FILE* file{fsbridge::fopen(temppath, "wb")};
+            AutoFile afile{file};
+            if (afile.IsNull()) {
+                return false;
+            }
+
+            Chainstate& chainstate = m_chainman.ActiveChainstate();
+            /* Create the snapshot at the current tip ("latest"). */
+            (void)::CreateUTXOSnapshot(m_node, chainstate, std::move(afile), path, temppath);
+
+            fs::rename(temppath, path);
+            return true;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
 private:
+    NodeContext& m_node;
     ChainstateManager& m_chainman;
     fs::path m_path;
     bool m_in_memory;
@@ -393,9 +423,9 @@ public:
         return ::tableRPC.execute(req);
     }
     std::vector<std::string> listRpcCommands() override { return ::tableRPC.listCommands(); }
-    std::unique_ptr<interfaces::Snapshot> loadSnapshot(const fs::path& path) override
+    std::unique_ptr<interfaces::Snapshot> utxoSnapshot(const fs::path& path) override
     {
-        return std::make_unique<SnapshotImpl>(chainman(), path, /*in_memory=*/ false);
+        return std::make_unique<SnapshotImpl>(*Assert(m_context), chainman(), path, /*in_memory=*/ false);
     }
     std::optional<Coin> getUnspentOutput(const COutPoint& output) override
     {

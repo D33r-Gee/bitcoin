@@ -208,7 +208,7 @@ public:
     virtual std::vector<std::string> listRpcCommands() = 0;
 
     //! Load UTXO Snapshot.
-    virtual std::unique_ptr<Snapshot> loadSnapshot(const fs::path& path) = 0;
+    virtual std::unique_ptr<Snapshot> utxoSnapshot(const fs::path& path) = 0;
 
     //! Get unspent output associated with a transaction.
     virtual std::optional<Coin> getUnspentOutput(const COutPoint& output) = 0;
