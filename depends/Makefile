@@ -99,6 +99,10 @@ host_os+=$(findstring netbsd,$(full_host_os))
 host_os+=$(findstring openbsd,$(full_host_os))
 host_os+=$(findstring mingw32,$(full_host_os))
 
+ifeq (android,$(findstring android,$(full_host_os)))
+host_os:=android
+endif
+
 host_os:=$(strip $(host_os))
 ifeq ($(host_os),)
 host_os=$(full_host_os)
@@ -167,7 +171,7 @@ zmq_packages_$(NO_ZMQ) = $(zmq_packages)
 ipc_packages_$(NO_IPC) = $(ipc_packages)
 usdt_packages_$(NO_USDT) = $(usdt_$(host_os)_packages)
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(boost_packages_) $(libevent_packages_) $(qt_packages_) $(wallet_packages_) $(usdt_packages_)
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(boost_packages_) $(libevent_packages_) $(qt_packages_) $(qrencode_packages_) $(wallet_packages_) $(usdt_packages_)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages) $(qt_native_packages_)
 
 ifneq ($(zmq_packages_),)
@@ -235,6 +239,13 @@ $(host_prefix)/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(fina
             -e 's|@wallet_packages@|$(wallet_packages_)|' \
             -e 's|@usdt_packages@|$(usdt_packages_)|' \
             -e 's|@ipc_packages@|$(ipc_packages_)|' \
+            -e 's|@multiprocess@|$(MULTIPROCESS)|' \
+            -e 's|@android_abi@|$(android_abi)|' \
+            -e 's|@android_ndk@|$(ANDROID_NDK)|' \
+            -e 's|@android_toolchain_bin_dir@|$(android_toolchain_bin_dir)|' \
+            -e 's|@android_libcxx_shared_dir@|$(android_libcxx_shared_dir)|' \
+            -e 's|@external_qt_android_sdk@|$(external_qt_android_sdk)|' \
+            -e 's|@external_qt_host_qt@|$(external_qt_host_qt)|' \
             $< > $@
 	touch $@
 
