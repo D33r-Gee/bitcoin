@@ -416,6 +416,60 @@ jobs:
             ${{ env.BASE_BUILD_DIR }}/src/univalue/*.exe
             ${{ env.BASE_BUILD_DIR }}/test/config.ini
 
+  android-cross:
+    name: 'Linux->Android cross, aarch64'
+    runs-on: ubuntu-latest
+    if: ${{ vars.SKIP_BRANCH_PUSH != 'true' || github.event_name == 'pull_request' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ccache cmake ninja-build python3
+          # Install specific NDK version
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+
+      - name: Set CI directories
+        run: |
+          echo "CCACHE_DIR=${{ runner.temp }}/ccache_dir" >> "$GITHUB_ENV"
+          echo "BASE_ROOT_DIR=${{ runner.temp }}" >> "$GITHUB_ENV"
+          echo "DEPENDS_DIR=${{ github.workspace }}/depends" >> "$GITHUB_ENV"
+          echo "BASE_BUILD_DIR=${{ github.workspace }}/build" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Depends cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DEPENDS_DIR }}/built
+          key: ${{ github.job }}-depends-${{ hashFiles('depends/**', 'ci/test/00_setup_env_android.sh') }}
+
+      - name: Build depends
+        run: |
+          make -C depends HOST=aarch64-linux-android ANDROID_API_LEVEL=33 ANDROID_NDK=${{ env.ANDROID_NDK }} -j $(nproc)
+
+      - name: Configure CMake
+        run: |
+          cmake -B build --toolchain depends/aarch64-linux-android/toolchain.cmake -G Ninja -DBUILD_GUI=ON
+
+      - name: Build APK
+        run: |
+          cmake --build build --target apk_package -j $(nproc)
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitcoin-qt-android-aarch64
+          path: build/android_package/build/outputs/apk/debug/*.apk
+
   windows-native-test:
     name: 'Windows, ${{ matrix.crt }}, test cross-built'
     runs-on: windows-2022
