@@ -29,7 +29,11 @@ function(add_boost_if_needed)
     endif()
   endif()
 
-  find_package(Boost 1.74.0 REQUIRED)
+  if(VCPKG_TARGET_TRIPLET)
+    find_package(Boost 1.74.0 REQUIRED CONFIG)
+  else()
+    find_package(Boost 1.74.0 REQUIRED)
+  endif()
   mark_as_advanced(Boost_INCLUDE_DIR boost_headers_DIR)
   # Workaround for a bug in NetBSD pkgsrc.
   # See: https://github.com/NetBSD/pkgsrc/issues/167.
