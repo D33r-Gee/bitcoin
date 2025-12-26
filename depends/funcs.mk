@@ -230,6 +230,7 @@ $(1)_cmake += -G "Unix Makefiles" \
               -DCMAKE_INSTALL_PREFIX:PATH="$$($($(1)_type)_prefix)" \
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DCMAKE_VERBOSE_MAKEFILE:BOOL=$(V) \
+              -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY:BOOL=TRUE \
               $$($(1)_config_opts)
 # We hardcode the library install path to "lib" to match the PKG_CONFIG_PATH
 # setting in depends/toolchain.cmake.in, which also hardcodes "lib".

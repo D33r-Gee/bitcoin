@@ -15,18 +15,13 @@ get_target_property(qt_lib_type Qt6::Core TYPE)
 
 function(import_plugins target)
   if(qt_lib_type STREQUAL "STATIC_LIBRARY")
-    set(plugins "")
-    if(TARGET Qt6::QMinimalIntegrationPlugin)
-      list(APPEND plugins Qt6::QMinimalIntegrationPlugin)
-    endif()
+    set(plugins Qt6::QMinimalIntegrationPlugin)
     if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|FreeBSD)$")
       list(APPEND plugins Qt6::QXcbIntegrationPlugin)
     elseif(WIN32)
       list(APPEND plugins Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
     elseif(APPLE)
       list(APPEND plugins Qt6::QCocoaIntegrationPlugin Qt6::QMacStylePlugin)
-    elseif(ANDROID)
-      list(APPEND plugins Qt6::QAndroidIntegrationPlugin Qt6::QAndroidStylePlugin)
     endif()
     qt6_import_plugins(${target}
       INCLUDE ${plugins}
@@ -316,8 +311,4 @@ else()
     -D "XGETTEXT_EXECUTABLE=${XGETTEXT_EXECUTABLE}"
     -P ${PROJECT_SOURCE_DIR}/share/qt/translate.cmake
   )
-endif()
-
-if(ANDROID)
-  add_subdirectory(android)
 endif()

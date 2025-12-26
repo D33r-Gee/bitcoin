@@ -85,7 +85,11 @@ endif
 $(package)_config_opts += -qt-libpng
 $(package)_config_opts += -qt-pcre
 $(package)_config_opts += -qt-zlib
-$(package)_config_opts += -shared
+ifeq ($(host_os),android)
+  $(package)_config_opts += -shared
+else
+  $(package)_config_opts += -static
+endif
 $(package)_config_opts += -no-feature-backtrace
 $(package)_config_opts += -no-feature-colordialog
 $(package)_config_opts += -no-feature-concurrent
